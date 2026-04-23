@@ -8,12 +8,11 @@ export default function Dashboard() {
   const [filtro, setFiltro] = useState('');
 
   useEffect(() => {
-    // Recupera o usuário do localStorage que salvamos no login
     const userJson = localStorage.getItem('user_portaria');
     if (userJson) {
       setUsuario(JSON.parse(userJson));
     } else {
-      window.location.href = '/'; // Se não tiver usuário, volta pro login
+      window.location.href = '/'; 
     }
     buscarEncomendas();
   }, []);
@@ -26,14 +25,41 @@ export default function Dashboard() {
     setEncomendas(data || []);
   }
 
+  // --- 1. FUNÇÃO DE BAIXA EFETIVA ADICIONADA AQUI ---
+  async function confirmarEntregaFisica(encomendaId) {
+    const confirmacao = confirm("Confirmar que o morador está retirando o pacote agora?");
+    if (!confirmacao) return;
+
+    const { error } = await supabase
+      .from('encomendas')
+      .update({ 
+        status: 'ENTREGUE',
+        data_entrega: new Date().toISOString() 
+      })
+      .eq('id', encomendaId);
+
+    if (error) {
+      alert("Erro ao finalizar entrega: " + error.message);
+    } else {
+      alert("Encomenda entregue com sucesso!");
+      buscarEncomendas(); // Recarrega a lista
+    }
+  }
+
   const sair = () => {
     localStorage.removeItem('user_portaria');
     window.location.href = '/';
   };
 
+  // Lógica de filtro para a busca
+  const encomendasFiltradas = encomendas.filter(enc => 
+    enc.destinatario.toLowerCase().includes(filtro.toLowerCase()) ||
+    enc.apartamento.includes(filtro) ||
+    enc.bloco.toLowerCase().includes(filtro.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-gray-100 pb-20">
-      {/* Header */}
       <div className="bg-blue-600 p-4 text-white flex justify-between items-center shadow-md">
         <div>
           <h1 className="font-bold text-lg">Portaria Control</h1>
@@ -44,7 +70,6 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* Barra de Busca Rápida */}
       <div className="p-4">
         <div className="relative">
           <Search className="absolute left-3 top-3 text-gray-400" size={20} />
@@ -57,16 +82,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Lista de Encomendas Pendentes */}
       <div className="px-4 space-y-3">
         <h2 className="font-bold text-gray-700 flex items-center gap-2">
           <Package size={18} /> Pendentes para Entrega
         </h2>
         
-        {encomendas.length === 0 ? (
-          <p className="text-center text-gray-500 py-10">Nenhuma encomenda pendente.</p>
+        {encomendasFiltradas.length === 0 ? (
+          <p className="text-center text-gray-500 py-10">Nenhuma encomenda encontrada.</p>
         ) : (
-          encomendas.map((enc) => (
+          encomendasFiltradas.map((enc) => (
             <div key={enc.id} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500 flex justify-between items-center">
               <div>
                 <p className="font-bold text-lg">B{enc.bloco} - Apto {enc.apartamento}</p>
@@ -75,17 +99,28 @@ export default function Dashboard() {
                   {new Date(enc.data_registro).toLocaleString('pt-BR')}
                 </span>
               </div>
-              <div className="text-right">
-                <span className={`text-xs font-bold px-2 py-1 rounded ${enc.status === 'ASSINADA' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+              <div className="flex flex-col items-end gap-2">
+                <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                  enc.status === 'PRE_LIBERADO' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                }`}>
                   {enc.status}
                 </span>
+
+                {/* --- 2. BOTÃO DE BAIXA FINAL ADICIONADO AQUI --- */}
+                {enc.status === 'PRE_LIBERADO' && (
+                  <button 
+                    onClick={() => confirmarEntregaFisica(enc.id)}
+                    className="bg-green-600 text-white text-[10px] font-bold py-2 px-3 rounded-lg shadow-sm active:scale-95 transition-transform"
+                  >
+                    BAIXA FINAL
+                  </button>
+                )}
               </div>
             </div>
           ))
         )}
       </div>
 
-      {/* Botão Flutuante de Adicionar (Otimizado para Mobile) */}
       <button 
         onClick={() => window.location.href = '/portaria/registro'}
         className="fixed bottom-6 right-6 bg-blue-600 text-white p-4 rounded-full shadow-2xl flex items-center gap-2 hover:bg-blue-700 transition-all"
