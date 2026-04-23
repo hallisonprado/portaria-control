@@ -20,6 +20,17 @@ export default function Login() {
       .eq('cpf', cpfLimpo)
       .single();
 
+    const { data: user, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('cpf', cpfLimpo)
+      .single();
+
+// ADICIONE ESTAS LINHAS ABAIXO:
+console.log("--- DEBUG LOGIN ---");
+console.log("Usuário retornado:", user);
+console.log("Erro do Supabase:", error);
+
     // 3. Verificação de credenciais com conversão explícita para String
     // Isso evita erros caso a senha no banco seja interpretada como número
     if (user && String(user.senha_hash) === String(password).trim()) {
